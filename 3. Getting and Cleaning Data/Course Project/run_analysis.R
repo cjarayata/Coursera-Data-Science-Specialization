@@ -88,7 +88,9 @@ data2 <- ddply(data, .(subject.id, activity.name),
 # Index is not helpful here, so remove it
 data2 <- select(data2, -index)
 
+# write out
 write.table(data2, file = "arayata_submission.txt", row.names = F)
+
 
 # Clean up environment
 rm(activity.labels, all.subjects, features, labels, one, two, target.vars, test.subjects, train.subjects,
