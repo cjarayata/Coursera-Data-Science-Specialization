@@ -1,0 +1,234 @@
+---
+title: "Course Notes"
+author: "CJ Arayata"
+date: "November 27, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+# this is how to set default parameters that apply to all chunks
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Golden Rule - SCRIPT EVERYTHING
+
+## Steps in a Data Analysis
+1. Define the question
+2. Define the ideal dataset
+        - Descriptive - whole population
+        - Exploratory - random sample w. many variables
+        - Inferential - right population, randomly sampled
+        - Predictive - training and test from same pop
+        - Causal - data from randomized study
+        - Mechanistic - data about all components of a system
+3. Determine what you can access
+4. Obtain data
+        - If off URL, make sure record *time of access*
+5. Clean data
+        - If preprocessed, know how!
+        - Know source of data (convenience, random, etc)
+        - Determine if data is good enough to proceed
+6. Exploratory analysis
+7. Statistical prediction / modeling
+8. Interpret results
+9. Challenge results
+10. Write up results
+11. Create reproducible code
+
+Defining the question is the most powerful 'dimension reduction' you can do.
+
+```{r}
+pacman::p_load(kernlab)
+data(spam)
+
+set.seed(3435)
+train.indicator <- rbinom(4601, size = 1, prob = 0.5)
+table(train.indicator)
+
+spam$numType <- ifelse(spam$type == "spam", 1, 0)
+
+train.spam <- spam[train.indicator == 1, ]
+test.spam <- spam[train.indicator == 0, ]
+
+```
+
+# Exploratory Analysis
+
+Look at summaries, check for missing, exploratory plots and analyses (e.g. clustering)
+
+```{r}
+names(train.spam)
+
+# these are words that appear in a given email and a proportion of occurance for each word
+
+table(train.spam$type)
+
+# Number of capital letters
+plot(train.spam$capitalAve ~ train.spam$type)
+
+# log of zero isn't helpful, so add one to it just to see
+plot(log10(train.spam$capitalAve + 1) ~ train.spam$type) # lots of capital letters in spam
+
+plot(log10(train.spam[, 1:4] + 1))
+
+# Cluster and see if any of the variables are related to each other
+
+hcluster <- hclust(dist(t(train.spam[, 1:57])))
+plot(hcluster)
+
+## But perhaps we need to transform all the variables
+hcluster2 <- hclust(dist(t(log10(train.spam[, 1:55] + 1))))
+plot(hcluster2)
+
+
+```
+
+## Statistical prediction/modeling
+
+Should be informed by exploratory results. Transformations should be accounted for when necessary. Measures of uncertainty should be reported.
+
+```{r}
+# Example showed that charDollar was best predictor
+
+prediction.model <- glm(numType ~ charDollar, family = "binomial", data = train.spam)
+prediction.test <- predict(prediction.model, test.spam)
+predicted.spam <- rep("nonspam", dim(test.spam)[1])
+predicted.spam[prediction.model$fitted.values > 0.5] = "spam"
+
+# That was pretty weird but gets the job done I guess
+table(predicted.spam, test.spam$type)
+
+# error rate - diagonals
+(61 + 458) / (1346 + 458 + 61 + 449)
+```
+
+## Interpreting Results
+
+Use appropriate language. Give an explanation, interpret coefficients, interpret uncertainty
+
+Fraction of characters that are dollar signs used as single predictor.... more than 6.6% used is classified as spam, more dollar signs -> more spam... 22% error rate
+
+## Challenge results
+
+Challenge the question, data source, processing, analyses, conclusions. Also, measures of uncertainty, choices of variables included/excluded, think of potential alternative analyses. If you don't, someone else will.
+
+## Synthesize / Write Up
+
+Lead with the question, summarize analyses into the story. Don't include every analyses, only include if it's needed for the story, or to address a challenge. Order the analyses according to the story, and include figures that support it.
+
+## Example
+
+"Can we use quantitative characteristics to classify SPAM vs. HAM?" We collected data from UCI and split into training/test sets. Chose logistic regression based on dollar signs from exploratory work on training set (lowest error during cross-validation). Applied to test set with 78% accuracy. Number of dollar signs seems reasonable to flag spam, but 78% isn't great. More variables could be used, and other models besides logistic regression could be used.
+
+## File Structure
+
+1. Data
+        - Raw
+                *Should be stored in analysis folder
+                *URL, Date of access, description etc. recorded in README
+        - Processed
+                * Named so it's easy to see which script generated the data
+                * Mapping should occur in README
+                * TIDY!
+2. Figures
+        - Exploratory
+        - Final / Production
+3. R-code
+        - Raw/unused scripts
+        - Final scripts
+        - R Markdown files
+                * Step by step walkthrough of analysis
+4. Text
+        - READMEs
+                * May not be needed if stuff is in Markdown file
+        - Written version of analysis / report
+        
+## Coding Standards
+
+Text files, indentation, limiting width of code (80 cols). Limit functions to one single process. Putting tons of operations in one single function can make it difficult to debug.
+
+## Markdown
+
+# Main, ## Secondary, ### Tertiary
+- list item one
+- list item two
+
+1. numbered list one
+2. numbered list two (numbers don't have to be in order, markdown will take care of this)
+
+[text of link](url of website)
+
+New lines need a double space  
+to start a new line
+
+## R Markdown
+
+Code is evaluated as part of the processing, results are inserted into the document.
+
+R markdown to standard markdown using knitr. Markdown to HTML via markdown. Can make slides using slidify package.
+
+## Knitr
+
+Literate programming: single document that has everything together, weaved to produce human-readable documents and tangled to produce machine-readable documents.
+
+Keep track of things, don't save output, save data in non-proprietary formats. It's better to have the raw plus complete pre-processing code.
+
+Good for manuals, short/medium tech docs, tutorials, regular reports, data preprocessing docs or summaries.
+
+Not good for long research articles, complex or time-consuming computations, or docs that require precise formatting.
+echo=F tag will hide the code to produce stuff.
+
+Can also do in-line text computations
+
+```{r time stuff, echo = F}
+time <- Sys.time()
+rand <- rnorm(1)
+
+```
+
+The current time is `r time`. My favorite number is `r rand`.
+
+```{r scatterplot, fig.height=4}
+
+# can edit plot parameters in heading of chunk
+
+```
+
+```{r showtable, results="asis"}
+airquality
+
+fit <- lm(Ozone ~ Wind + Temp, data = airquality)
+
+library(xtable)
+xt <- xtable(summary(fit))
+print(xt, type = "html")
+
+```
+
+Can cache computations with 'cache = TRUE' option in each chunk. After furst run, results loaded in from cahce to save time.
+
+## Making sure your code is reproducible
+
+Nothing by hand. It's worth teaching your computer how to do it (like fetching data from a website)
+
+Also includes information about your operating system, R version, packages, etc.
+
+```{r}
+sessionInfo()
+```
+
+## Don't save output
+
+If there are stray files kicking around your project folder that you don't know where they came from, they're not reproducible. It's much better to save the raw and all of the code to generate it.
+
+Setting seed is really important!!
+
+## Summary
+
+- Anything by hand? Is it *precisely* documented?
+- As much coded into computer?
+- Version control?
+- Documentation of software environment?
+- Loose output that cannot be reconstructed? BAD!
+- How far back can we go / what is grand total of pipeline that can be run automatically?
