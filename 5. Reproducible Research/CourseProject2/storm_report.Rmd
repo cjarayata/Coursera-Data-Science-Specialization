@@ -1,0 +1,84 @@
+---
+title: "This needs to be descriptive"
+author: "CJ Arayata"
+date: "December 26, 2018"
+output: html_document
+---
+
+## Report Synopsis
+
+## Data Processing
+
+Maybe a good idea to chunk the years into bins of 10 or so
+```{r setup, include = TRUE, cache = TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# load packages
+pacman::p_load(plyr, tidyverse, magrittr, plotly, ggthemes)
+
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "5. Reproducible Research/CourseProject2/stormdata.csv.bz2")
+
+stormdata <- read.csv("5. Reproducible Research/CourseProject2/stormdata.csv.bz2", na.strings = c("", " "), stringsAsFactors = F)
+
+```
+
+```{r}
+typetable <- data.frame(table(stormdata$EVTYPE))
+```
+
+
+## Results
+
+Across the United States, which types of events (as indicated in the \color{red}{\verb|EVTYPE|}EVTYPE variable) are most harmful with respect to population health?
+
+
+
+
+Across the United States, which types of events have the greatest economic consequences?
+
+
+```{r}
+stormdata$pop.harm <- stormdata$FATALITIES + stormdata$INJURIES
+stormdata$economic.harm <- stormdata$PROPDMG + stormdata$CROPDMG
+
+summary <- ddply(stormdata, ~EVTYPE, summarise,
+                 total.pop.harm = sum(pop.harm, na.rm = T),
+                 total.economic.harm = sum(economic.harm, na.rm = T))
+
+summary$EVTYPE <- as.character(summary$EVTYPE)
+
+# Look at top 15
+top.pop <- arrange(summary, -total.pop.harm)[1:15, ]
+
+ggplot(top.pop, aes(x = reorder(EVTYPE, -total.pop.harm), y = total.pop.harm)) +
+        geom_col() +
+        theme_tufte() +
+        geom_text(aes(label = total.pop.harm), vjust = -.5) + 
+        theme(axis.text.x = element_text(angle = -45, hjust = -.05)) +
+        labs(x = "Event Type", y = "Total Fatalities & Injuries",
+             title = "Population Harm by Event Type, United States (1950 - 2011)")
+
+        
+```
+
+
+```{r}
+# Look at top 15
+top.eco <- arrange(summary, -total.economic.harm)[1:15, ]
+
+# top.eco$economic.format <- round(top.eco$total.economic.harm, 0)
+top.eco$economic.harm <-round(top.eco$total.economic.harm, 0)
+top.eco$economic.harm <- format(top.eco$economic.harm, big.mark=",",small.mark=",", small.interval=3)
+top.eco$economic.harm <- paste0("$", top.eco$economic.harm)
+
+ggplot(top.eco, aes(x = reorder(EVTYPE, -total.economic.harm), y = total.economic.harm)) +
+        geom_col() +
+        theme_tufte() +
+        geom_text(aes(label = economic.harm), vjust = -.5) + 
+        theme(axis.text.x = element_text(angle = -45, hjust = -.05)) +
+        labs(x = "Event Type", y = "Total Property Damage & Crop Damage (Millions of Dollars)",
+             title = "Economic Harm by Event Type, United States (1950 - 2011)") +
+        scale_y_continuous(breaks = c(0, 1000000, 2000000, 3000000),
+                           labels = c("$0", "1", "2", "3"))
+
+```
