@@ -1,5 +1,5 @@
 ---
-title: "This needs to be descriptive"
+title: "Tornadoes: The Most Destructive Severe Weather Event"
 author: "CJ Arayata"
 date: "December 26, 2018"
 output: html_document
@@ -7,50 +7,60 @@ output: html_document
 
 ## Report Synopsis
 
+The objective of this analysis was to identify the type of severe weather event that is most harmful and destructive in terms of population health and economic consequences. Data was pulled from the NOAA Storm Database, which has records of various weather events across the United States from 1950 to 2011. The effect on population health for each event was measured by summing the number of fatalities and injuries, and the economic effect for each event was measured by summing the property damage and crop damage. Individual events were then aggregated by event type. The results show that tornados are the most harmful for both population and economics, with thunderstorm winds representing the second-most harmful severe weather event.
+
 ## Data Processing
 
-Maybe a good idea to chunk the years into bins of 10 or so
+Data was downloaded from the course website.
+
 ```{r setup, include = TRUE, cache = TRUE}
 knitr::opts_chunk$set(echo = TRUE)
 
 # load packages
-pacman::p_load(plyr, tidyverse, magrittr, plotly, ggthemes)
+pacman::p_load(plyr, tidyverse, magrittr, plotly, ggthemes, stringr)
 
-download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "5. Reproducible Research/CourseProject2/stormdata.csv.bz2")
+# download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2", destfile = "C:/Users/carayata/Desktop/datasciencecoursera/5. Reproducible Research/CourseProject2/stormdata.csv.bz2")
 
-stormdata <- read.csv("5. Reproducible Research/CourseProject2/stormdata.csv.bz2", na.strings = c("", " "), stringsAsFactors = F)
+stormdata <- read.csv("C:/Users/carayata/Desktop/datasciencecoursera/5. Reproducible Research/CourseProject2/stormdata.csv.bz2", na.strings = c("", " "), stringsAsFactors = F)
 
 ```
 
+After download, the EVTYPE variable should be checked. This will be the critical independent variable in our analyses. Looking at the top 20 most frequent event types, we see there is some slight data cleaning to be done. For one, strings such as "tstm" need to be changed to "thunderstorm", and "winds" should be changed to "wind". There is much more data cleaning that can be done here for various event types, but because many of the spelling variations only have one or two events associated with them, I focused on cleaning within this list of top 20.
+
+I then created the target dependent variables of population harm by summing fatalities and injuries, and then calculated economic harm by summing property damage and crop damage.
+
+Finally, I created a summary data.frame that contained the total events for each event type, and the sums of population harm and economic harm.
+
 ```{r}
-typetable <- data.frame(table(stormdata$EVTYPE))
+table(stormdata$EVTYPE)[order(table(stormdata$EVTYPE), decreasing = T)][1:20]
+
+stormdata$type.clean <- stormdata$EVTYPE
+stormdata$type.clean %<>% tolower() %>% 
+        str_replace_all(c("tstm" = "thunderstorm",
+                                           "winds" = "wind"))
+
+stormdata$pop.harm <- stormdata$FATALITIES + stormdata$INJURIES
+stormdata$economic.harm <- stormdata$PROPDMG + stormdata$CROPDMG
+
+summary <- ddply(stormdata, ~type.clean, summarise,
+                 total.events = length(type.clean),
+                 total.pop.harm = sum(pop.harm, na.rm = T),
+                 total.economic.harm = sum(economic.harm, na.rm = T))
 ```
 
 
 ## Results
 
-Across the United States, which types of events (as indicated in the \color{red}{\verb|EVTYPE|}EVTYPE variable) are most harmful with respect to population health?
+*Across the United States, which types of events (as indicated in the \color{red}{\verb|EVTYPE|}EVTYPE variable) are most harmful with respect to population health?*
 
-
-
-
-Across the United States, which types of events have the greatest economic consequences?
+The top 15 most harmful event types for population health are shown below. Tornadoes are the most harmful event type, followed by thunderstorm wind in a far second, and excessive heat as third.
 
 
 ```{r}
-stormdata$pop.harm <- stormdata$FATALITIES + stormdata$INJURIES
-stormdata$economic.harm <- stormdata$PROPDMG + stormdata$CROPDMG
-
-summary <- ddply(stormdata, ~EVTYPE, summarise,
-                 total.pop.harm = sum(pop.harm, na.rm = T),
-                 total.economic.harm = sum(economic.harm, na.rm = T))
-
-summary$EVTYPE <- as.character(summary$EVTYPE)
-
 # Look at top 15
 top.pop <- arrange(summary, -total.pop.harm)[1:15, ]
 
-ggplot(top.pop, aes(x = reorder(EVTYPE, -total.pop.harm), y = total.pop.harm)) +
+ggplot(top.pop, aes(x = reorder(type.clean, -total.pop.harm), y = total.pop.harm)) +
         geom_col() +
         theme_tufte() +
         geom_text(aes(label = total.pop.harm), vjust = -.5) + 
@@ -61,17 +71,23 @@ ggplot(top.pop, aes(x = reorder(EVTYPE, -total.pop.harm), y = total.pop.harm)) +
         
 ```
 
+**Figure 1:** Population Harm by Event Type, United States (1950 - 2011).
+
+
+*Across the United States, which types of events have the greatest economic consequences?*
+
+The top 15 event types with the greatest economic consequences are shown below. Tornadoes cause the most damage to property and crops, followed by thunderstorm winds and flash flooding.
 
 ```{r}
 # Look at top 15
 top.eco <- arrange(summary, -total.economic.harm)[1:15, ]
 
-# top.eco$economic.format <- round(top.eco$total.economic.harm, 0)
+# Make a nice label with dollar signs and commas
 top.eco$economic.harm <-round(top.eco$total.economic.harm, 0)
 top.eco$economic.harm <- format(top.eco$economic.harm, big.mark=",",small.mark=",", small.interval=3)
 top.eco$economic.harm <- paste0("$", top.eco$economic.harm)
 
-ggplot(top.eco, aes(x = reorder(EVTYPE, -total.economic.harm), y = total.economic.harm)) +
+ggplot(top.eco, aes(x = reorder(type.clean, -total.economic.harm), y = total.economic.harm)) +
         geom_col() +
         theme_tufte() +
         geom_text(aes(label = economic.harm), vjust = -.5) + 
@@ -82,3 +98,5 @@ ggplot(top.eco, aes(x = reorder(EVTYPE, -total.economic.harm), y = total.economi
                            labels = c("$0", "1", "2", "3"))
 
 ```
+
+**Figure 2:** Economic Harm by Event Type, United States (1950 - 2011).
